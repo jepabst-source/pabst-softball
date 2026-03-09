@@ -1760,9 +1760,6 @@ function checkRatingWarning(activePlayers) {
 }
 
 function scoreFieldPlayer(p, pos, ing, posHistory) {
-  const isDevInning = ing === 2;
-  const ratingWeight = isDevInning ? 2 : 8;
-
   // Hard floor: 1st Base and Shortstop require rating 3+
   const minRating = POS_MIN_RATING[pos];
   if (minRating && p.defRating < minRating) return -9999;
@@ -1774,53 +1771,52 @@ function scoreFieldPlayer(p, pos, ing, posHistory) {
     .length;
   if (INFIELD_POSITIONS.includes(pos) && infieldCountSoFar >= 2) return -9999;
 
-  // Season-level outfield pressure
-  const outfieldHistory = OUTFIELD_POSITIONS.reduce((s, op) => s + (posHistory[p.id]?.[op] || 0), 0);
-  const outfieldPressure = OUTFIELD_POSITIONS.includes(pos) ? Math.max(0, 3 - outfieldHistory) * 2 : 0;
+  const jitter = (Math.random() - 0.5) * 0.4;
 
-  // Small random jitter breaks ties between equal-rated players
-  const jitter = (Math.random() - 0.5) * 1.5;
-
-  return p.defRating * ratingWeight
+  return p.defRating * 10
     + jitter
     - (countInningAssignment(ing, pos, p.id) >= 2 ? 999 : countInningAssignment(ing, pos, p.id) === 1 ? 20 : 0)
-    - (prevInningPos(ing, p.id) === pos ? 10 : 0)
-    - (posHistory[p.id]?.[pos] || 0) * 4
-    + (Math.max(0, 3 - (posHistory[p.id]?.[pos] || 0)) * 3)
-    + ((p.prefPositions || []).includes(pos) ? 6 : 0)
-    + (ing > 1 && (prevInningPos(ing, p.id) === 'Bench 1' || prevInningPos(ing, p.id) === 'Bench 2') ? 5 : 0)
-    + outfieldPressure;
+    - (prevInningPos(ing, p.id) === pos ? 8 : 0)
+    - (posHistory[p.id]?.[pos] || 0) * 3
+    + (Math.max(0, 3 - (posHistory[p.id]?.[pos] || 0)) * 2)
+    + ((p.prefPositions || []).includes(pos) ? 5 : 0)
+    + (ing > 1 && (prevInningPos(ing, p.id) === 'Bench 1' || prevInningPos(ing, p.id) === 'Bench 2') ? 4 : 0);
 }
 
-// Assign field positions using best global fit (not sequential by position)
-// This prevents infield always claiming top-rated players before outfield gets a turn
+// Two-pass assignment: infield filled by best players first, outfield gets whoever's left.
+// Inning 2 (dev): infield and outfield compete equally so strong players can land outfield.
 function assignFieldPositions(fieldPlayers, fieldPositions, ing, posHistory) {
   const assignment = {};
   const usedPlayers = new Set();
-  const usedPositions = new Set();
 
-  // Build all player-position score pairs
-  let pairs = [];
-  for (const pos of fieldPositions) {
-    for (const p of fieldPlayers) {
-      const score = scoreFieldPlayer(p, pos, ing, posHistory);
-      if (score > -9000) pairs.push({ p, pos, score });
+  const infield = fieldPositions.filter(p => INFIELD_POSITIONS.includes(p));
+  const outfield = fieldPositions.filter(p => OUTFIELD_POSITIONS.includes(p));
+  const isDevInning = ing === 2;
+
+  function bestFit(positions, candidates) {
+    for (const pos of positions) {
+      const avail = candidates.filter(p => !usedPlayers.has(p.id));
+      if (!avail.length) break;
+      const scored = avail.map(p => ({ p, score: scoreFieldPlayer(p, pos, ing, posHistory) }))
+        .filter(x => x.score > -9000)
+        .sort((a, b) => b.score - a.score);
+      if (!scored.length) continue;
+      assignment[pos] = scored[0].p.id;
+      usedPlayers.add(scored[0].p.id);
     }
   }
 
-  // Shuffle pairs with same score to break roster-order bias
-  pairs.sort((a, b) => b.score - a.score + (Math.random() - 0.5) * 0.1);
-
-  // Greedily assign best available pair
-  for (const { p, pos } of pairs) {
-    if (usedPlayers.has(p.id) || usedPositions.has(pos)) continue;
-    assignment[pos] = p.id;
-    usedPlayers.add(p.id);
-    usedPositions.add(pos);
-    if (usedPositions.size === fieldPositions.length) break;
+  if (isDevInning) {
+    // Inning 2: fill all positions together with equal competition
+    const allPos = [...infield, ...outfield].sort(() => Math.random() - 0.5);
+    bestFit(allPos, fieldPlayers);
+  } else {
+    // Innings 1 & 3: infield first (claims best players), then outfield gets remainder
+    bestFit(infield, fieldPlayers);
+    bestFit(outfield, fieldPlayers);
   }
 
-  // Fallback: if any position unassigned (e.g. all qualified blocked), fill with anyone left
+  // Fallback for any unfilled positions
   for (const pos of fieldPositions) {
     if (assignment[pos]) continue;
     const remaining = fieldPlayers.find(p => !usedPlayers.has(p.id));
