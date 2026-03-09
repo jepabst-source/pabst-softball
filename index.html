@@ -36,6 +36,22 @@
 
   h1, h2, h3, h4 { font-family: 'Oswald', sans-serif; letter-spacing: 0.05em; }
 
+  .coach-code-input {
+    width: 54px; height: 64px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--chalk);
+    font-family: Oswald, sans-serif;
+    font-size: 2rem;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s;
+    caret-color: var(--lime);
+  }
+  .coach-code-input:focus { border-color: var(--lime); }
+
   header {
     background: var(--grass);
     border-bottom: 3px solid var(--lime);
@@ -458,25 +474,6 @@
     display: none;
   }
 
-  /* ===== OOR PANEL ===== */
-  .oor-panel {
-    background: rgba(240,180,41,0.06);
-    border: 1px solid rgba(240,180,41,0.3);
-    border-radius: 12px;
-    padding: 20px;
-    margin-top: 20px;
-  }
-  .oor-title {
-    font-family: 'Oswald', sans-serif;
-    color: var(--gold);
-    font-size: 1.1rem;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .oor-desc { font-size: 0.85rem; color: #8aab6a; margin-bottom: 14px; }
-
   /* ===== GAME CONTEXT BAR ===== */
   .game-context {
     display: flex;
@@ -879,7 +876,25 @@
 </head>
 <body>
 
-<header>
+<!-- COACH GATE -->
+<div id="coach-gate" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:0;">
+  <div style="font-family:Oswald;font-size:2.2rem;font-weight:700;color:var(--lime);letter-spacing:0.04em;margin-bottom:4px;">🥎 Pabst Softball</div>
+  <div style="font-size:0.85rem;color:#6a8a55;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:40px;">Coach Access</div>
+  <div style="font-size:0.75rem;color:#6a8a55;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">Enter access code</div>
+  <div style="display:flex;gap:12px;margin-bottom:12px;">
+    <input class="coach-code-input" id="cc0" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="coach-code-input" id="cc1" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="coach-code-input" id="cc2" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="coach-code-input" id="cc3" maxlength="1" type="tel" inputmode="numeric" />
+  </div>
+  <div id="coach-gate-error" style="font-size:0.8rem;color:var(--red);min-height:18px;margin-bottom:18px;text-align:center;"></div>
+  <button onclick="checkCoachCode()" style="background:var(--lime);color:#0a1a08;font-family:Oswald;font-size:1rem;font-weight:700;letter-spacing:0.08em;border:none;border-radius:8px;padding:14px 36px;cursor:pointer;width:100%;max-width:232px;">Enter</button>
+</div>
+
+<!-- MAIN APP -->
+<div id="coach-app" style="display:none;">
+
+
   <h1><span class="ball-icon">🥎</span> Pabst Softball</h1>
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
     <span id="sync-status" style="font-size:0.75rem;color:#f0b429;">💾 Local only</span>
@@ -1045,13 +1060,6 @@
 
   </div>
 
-  <!-- OOR -->
-  <div class="oor-panel mt-4">
-    <div class="oor-title">🚩 Out-of-Reach (OOR) Lineup</div>
-    <div class="oor-desc">Full 9-player lineup for when the game is out of reach. Flips the script — less experienced players get infield time, strong players rest. Gold badges = first time at that position. Commit it to history so the app learns.</div>
-    <button class="btn btn-gold" onclick="generateOOR()">Generate OOR Suggestions</button>
-    <div id="oor-output" style="margin-top:12px;"></div>
-  </div>
 </div>
 
 <!-- ===== LOG AT-BATS ===== -->
@@ -2140,147 +2148,6 @@ function reshuffleInning(ing) {
   renderInningCards();
 }
 
-function buildOORLineup() {
-  const activePlayers = getActivePlayers();
-  if (!activePlayers.length) return null;
-  const posHistory = getPositionHistory();
-  const p1 = activePlayers.find(p => p.role === 'P1');
-  const catchers = activePlayers.filter(p => p.canCatch);
-  const sorted = [...activePlayers].sort((a,b)=>a.defRating-b.defRating+(Math.random()-0.5)*1.5);
-
-  const assignment = {};
-  const used = new Set();
-
-  // Pitcher: pick someone who has NEVER pitched (not P1), or least times
-  const pitcherPool = state.players.filter(p => p.role !== 'P1');
-  if (pitcherPool.length) {
-    const pick = pitcherPool
-      .map(p => ({ p, count: posHistory[p.id]?.['Pitcher'] || 0 }))
-      .sort((a,b) => a.count - b.count)[0];
-    assignment['Pitcher'] = pick.p.id;
-    used.add(pick.p.id);
-  } else if (p1) {
-    assignment['Pitcher'] = p1.id;
-    used.add(p1.id);
-  }
-
-  // Catcher: least experienced catcher from canCatch pool
-  if (catchers.length) {
-    const avail = catchers.filter(p => !used.has(p.id));
-    if (avail.length) {
-      const pick = avail
-        .map(p => ({ p, count: posHistory[p.id]?.['Catcher'] || 0 }))
-        .sort((a,b) => a.count - b.count)[0];
-      assignment['Catcher'] = pick.p.id;
-      used.add(pick.p.id);
-    }
-  }
-
-  // Bench: put the TOP 2 rated players on bench (they've had their time, let others shine)
-  // Unless it would break things with too few players
-  const topRated = [...state.players]
-    .filter(p => !used.has(p.id))
-    .sort((a,b) => b.defRating - a.defRating);
-  const benched = new Set();
-  // Only bench strong players if we still have enough for all field positions
-  const fieldCount = ALL_POSITIONS.filter(p => !p.startsWith('Bench') && p !== 'Pitcher' && p !== 'Catcher').length;
-  const available = state.players.length - used.size;
-  const canBench = available - fieldCount; // how many we CAN bench
-  for (const p of topRated) {
-    if (benched.size >= Math.min(2, canBench)) break;
-    benched.add(p.id);
-    used.add(p.id);
-  }
-
-  // Fill field positions: lowest-rated players get infield (new experience)
-  const fieldPositions = ALL_POSITIONS.filter(p => !p.startsWith('Bench') && p !== 'Pitcher' && p !== 'Catcher');
-  // Infield first (more coveted), give to least-experienced at those spots
-  for (const pos of fieldPositions) {
-    const avail = sorted.filter(p => !used.has(p.id));
-    if (!avail.length) break;
-    const scored = avail.map(p => ({
-      p,
-      // INVERT the normal logic: reward players who HAVEN'T played this spot
-      score: -(posHistory[p.id]?.[pos] || 0) * 5  // fewer times = higher score
-           + (p.defRating * -1)                    // lower rating gets infield priority
-           + (Math.random() * 2)
-    })).sort((a,b) => b.score - a.score);
-    assignment[pos] = scored[0].p.id;
-    used.add(scored[0].p.id);
-  }
-
-  const benchArr = [...benched];
-  assignment['Bench 1'] = benchArr[0] || null;
-  assignment['Bench 2'] = benchArr[1] || null;
-
-  return assignment;
-}
-
-function generateOOR() {
-  const out = document.getElementById('oor-output');
-  if (!state.players.length) {
-    out.innerHTML = '<div style="color:#6a8a55;font-size:0.85rem;">Add players first.</div>';
-    return;
-  }
-
-  const lineup = buildOORLineup();
-  if (!lineup) return;
-
-  const posHistory = getPositionHistory();
-
-  const makeOORRow = (pos) => {
-    const pid = lineup[pos];
-    const p = pid ? state.players.find(x => x.id == pid) : null;
-    const timesHere = pid ? (posHistory[pid]?.[pos] || 0) : 0;
-    const isNew = timesHere === 0;
-    const isBench = pos.startsWith('Bench');
-    const posClass = POSITIONS.infield.includes(pos) ? 'pos-infield' : POSITIONS.outfield.includes(pos) ? 'pos-outfield' : 'pos-bench';
-    return `<div class="position-row" style="margin-bottom:4px;${isNew && !isBench ? 'border-color:rgba(240,180,41,0.4);' : ''}">
-      <div class="pos-label"><span class="pos-pill ${posClass}" style="font-size:0.65rem;">${pos}</span></div>
-      <div style="flex:1;display:flex;align-items:center;justify-content:space-between;padding:0 6px;">
-        <span style="font-size:0.9rem;color:${isBench ? '#888' : 'var(--chalk)'};">${p ? p.name : '—'}</span>
-        ${isNew && !isBench ? '<span style="font-size:0.65rem;color:var(--gold);background:rgba(240,180,41,0.15);padding:1px 5px;border-radius:3px;">FIRST TIME</span>' : ''}
-        ${!isNew && !isBench ? `<span style="font-size:0.65rem;color:#6a8a55;">${timesHere}× before</span>` : ''}
-      </div>
-    </div>`;
-  };
-
-  out.innerHTML = `
-    <div style="margin-bottom:10px;font-size:0.82rem;color:#8aab6a;line-height:1.5;">
-      Full lineup for lopsided innings. Weaker players get infield. Strong players rest. Gold = first time at that spot.
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-      <div>
-        <div style="font-family:Oswald;font-size:0.7rem;color:#6a8a55;letter-spacing:0.1em;margin-bottom:6px;">INFIELD</div>
-        ${POSITIONS.infield.map(makeOORRow).join('')}
-      </div>
-      <div>
-        <div style="font-family:Oswald;font-size:0.7rem;color:#6a8a55;letter-spacing:0.1em;margin-bottom:6px;">OUTFIELD</div>
-        ${POSITIONS.outfield.map(makeOORRow).join('')}
-        <div style="font-family:Oswald;font-size:0.7rem;color:#6a8a55;letter-spacing:0.1em;margin:8px 0 6px;">BENCH</div>
-        ${POSITIONS.bench.map(makeOORRow).join('')}
-      </div>
-    </div>
-    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-gold btn-sm" onclick="generateOOR()">🔀 Regenerate</button>
-      <button class="btn btn-secondary btn-sm" onclick="commitOORToHistory()">✅ Commit this OOR lineup to history</button>
-    </div>`;
-}
-
-function commitOORToHistory() {
-  const game = document.getElementById('d-game-num').value.trim() || 'oor';
-  const date = document.getElementById('d-game-date').value;
-  const lineup = buildOORLineup();
-  if (!lineup) return;
-  const clean = {};
-  for (const [pos, id] of Object.entries(lineup)) if (id) clean[pos] = id;
-  state.defensiveLineups.push({ game: game + '-oor', inning: 'OOR', date, assignments: clean });
-  save();
-  alert('OOR lineup committed to history! The app will learn from it.');
-}
-
-function getAssigned(pos) { return ''; }
-
 function saveFullGame() {
   const distinctGames = new Set(state.defensiveLineups.map(l => l.game).filter(g => !String(g).endsWith('-oor')));
   const autoNum = distinctGames.size + 1;
@@ -2734,13 +2601,56 @@ function renderPrintTab() {
     </div>`;
 }
 
+function initApp() {
+  load();
+  loadAttendance();
+  renderRoster();
+  renderRunsInputs();
+  renderAttendanceGrids();
+  initFirebase();
+}
+</script>
+</div><!-- end coach-app -->
 
-load();
-loadAttendance();
-renderRoster();
-renderRunsInputs();
-renderAttendanceGrids();
-initFirebase();
+<script>
+// ── COACH GATE ──
+const COACH_CODE = '2525';
+const COACH_SESSION = 'pabst_coach_auth';
+
+document.querySelectorAll('.coach-code-input').forEach((input, i, all) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(-1);
+    if (input.value && i < all.length - 1) all[i + 1].focus();
+    if (i === all.length - 1 && input.value) checkCoachCode();
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+    if (e.key === 'Enter') checkCoachCode();
+  });
+});
+
+function checkCoachCode() {
+  const entered = [...document.querySelectorAll('.coach-code-input')].map(i => i.value).join('');
+  if (entered.length < 4) { document.getElementById('coach-gate-error').textContent = 'Enter all 4 digits'; return; }
+  if (entered === COACH_CODE) {
+    sessionStorage.setItem(COACH_SESSION, 'ok');
+    document.getElementById('coach-gate').style.display = 'none';
+    document.getElementById('coach-app').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('coach-gate-error').textContent = 'Incorrect code — try again';
+    document.querySelectorAll('.coach-code-input').forEach(i => i.value = '');
+    document.getElementById('cc0').focus();
+  }
+}
+
+if (sessionStorage.getItem(COACH_SESSION) === 'ok') {
+  document.getElementById('coach-gate').style.display = 'none';
+  document.getElementById('coach-app').style.display = 'block';
+  initApp();
+} else {
+  document.getElementById('cc0').focus();
+}
 </script>
 </body>
 </html>
