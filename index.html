@@ -1003,6 +1003,7 @@
     <div class="section-title">Defensive Lineup</div>
     <div class="inline-flex">
       <button class="btn btn-secondary" onclick="buildRotation();renderInningCards()">🔀 Regenerate All</button>
+      <button class="btn btn-primary" onclick="saveFullGame()">✅ Commit Game</button>
     </div>
   </div>
   <div class="info-note">Auto-generates a 3-inning rotation. Inning 2 uses relaxed weighting for development. 1st Base and Shortstop require rating 3+. No player sits bench two innings in a row.</div>
@@ -1041,7 +1042,7 @@
   <div id="inning-cards" style="display:flex;flex-direction:column;gap:20px;"></div>
 
   <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
-    <button class="btn btn-primary" onclick="saveFullGame()">✅ Commit Game to History</button>
+
   </div>
 
   <!-- OOR -->
@@ -1162,9 +1163,6 @@
         <button class="btn btn-secondary btn-sm" onclick="resetGameDay()">Reset</button>
       </div>
     </div>
-
-    <!-- Inning selector -->
-    <div class="inning-tracker" id="gd-inning-tracker"></div>
 
     <!-- NOW BATTING outcome card — hidden until a player is selected -->
     <div class="at-bat-card" id="gd-atbat-card" style="display:none;">
@@ -1596,8 +1594,9 @@ function renderBattingOrder() {
     const r = getRollingAvg(p.id);
     return { ...p, ...s, avg: r.avg, avgAbs: r.absCount };
   }).sort((a, b) => {
-    if (b.avg !== a.avg) return b.avg - a.avg;
-    return b.defRating - a.defRating;  // tiebreak by defensive rating
+    if (b.avg !== a.avg) return (b.avg ?? -1) - (a.avg ?? -1);  // rolling avg first
+    if (b.pts !== a.pts) return b.pts - a.pts;                   // total points second
+    return b.defRating - a.defRating;                            // defensive rating last
   });
 
   list.innerHTML = ranked.map((p, i) => {
@@ -2631,7 +2630,7 @@ function gdRecord(outcome) {
     id: Date.now(),
     playerId: p.id,
     game: gameKey,
-    inning: gdState.inning,
+    inning: 1,
     outcome,
     ts: Date.now()
   });

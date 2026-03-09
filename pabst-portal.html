@@ -574,9 +574,9 @@ function renderPlayers() {
 
     const trendIcon = {
       up:   '<span class="trend-arrow trend-up">↑</span><span class="trend-label">Improving</span>',
-      down: '<span class="trend-arrow trend-down">↓</span><span class="trend-label">Tailing off</span>',
-      flat: '<span class="trend-arrow trend-flat">→</span><span class="trend-label">Steady</span>',
-      new:  '<span class="trend-label" style="color:var(--muted);">Not enough data yet</span>',
+      down: '',
+      flat: '',
+      new:  '',
     }[trend];
 
     const posBadges = positions.length
