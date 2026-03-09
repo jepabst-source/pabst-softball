@@ -2550,7 +2550,6 @@ function renderGdRoster() {
   for (const e of gdState.log) {
     innABs[e.playerId] = (innABs[e.playerId] || 0) + 1;
   }
-  }
 
   grid.innerHTML = order.map((p, idx) => {
     const abCount = innABs[p.id] || 0;
