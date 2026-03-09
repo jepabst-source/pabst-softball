@@ -78,8 +78,12 @@
 
   @media (max-width: 640px) {
     header h1 { display: none; }
-    header { padding: 10px 14px; }
+    header { padding: 8px 10px; }
     .print-tab-btn { display: none; }
+    .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 1; max-width: 100%; }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab { padding: 7px 10px; font-size: 0.78rem; white-space: nowrap; }
+    header > div { min-width: 0; flex: 1; }
   }
 
   .tab-bar {
