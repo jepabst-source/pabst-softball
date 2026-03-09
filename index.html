@@ -2537,25 +2537,6 @@ function renderGameDay() {
     document.getElementById('gd-roster-grid').innerHTML = '<div class="empty-state" style="grid-column:span 2">Add players to the roster first.</div>';
     return;
   }
-  renderGdInningTracker();
-  renderGdRoster();
-  renderGdLog();
-}
-
-function renderGdInningTracker() {
-  const el = document.getElementById('gd-inning-tracker');
-  el.innerHTML = [1,2,3,4].map(i => {
-    const cls = i < gdState.inning ? 'done' : i === gdState.inning ? 'active' : '';
-    return `<div class="inn-pip ${cls}" onclick="gdSetInning(${i})">${i}</div>`;
-  }).join('');
-}
-
-function gdSetInning(i) {
-  gdState.inning = i;
-  gdState.selectedPlayerId = null;
-  document.getElementById('gd-atbat-card').style.display = 'none';
-  document.getElementById('gd-roster-grid').style.display = 'grid';
-  renderGdInningTracker();
   renderGdRoster();
   renderGdLog();
 }
@@ -2564,10 +2545,11 @@ function renderGdRoster() {
   const order = gdBattingOrder();
   const grid = document.getElementById('gd-roster-grid');
 
-  // Count at-bats per player this inning for display
+  // Count at-bats per player for display
   const innABs = {};
   for (const e of gdState.log) {
-    if (e.inning === gdState.inning) innABs[e.playerId] = (innABs[e.playerId] || 0) + 1;
+    innABs[e.playerId] = (innABs[e.playerId] || 0) + 1;
+  }
   }
 
   grid.innerHTML = order.map((p, idx) => {
