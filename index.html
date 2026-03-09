@@ -82,8 +82,13 @@
     .print-tab-btn { display: none; }
     .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 1; max-width: 100%; }
     .tab-bar::-webkit-scrollbar { display: none; }
-    .tab { padding: 7px 10px; font-size: 0.78rem; white-space: nowrap; }
+    .tab { padding: 6px 8px; font-size: 0.7rem; white-space: nowrap; letter-spacing: 0.04em; }
     header > div { min-width: 0; flex: 1; }
+    .tab-label-full { display: none; }
+    .tab-label-short { display: inline; }
+  }
+  @media (min-width: 641px) {
+    .tab-label-short { display: none; }
   }
 
   .tab-bar {
@@ -912,9 +917,9 @@
       <button class="tab active" onclick="showTab('roster')">ROSTER</button>
       <button class="tab" onclick="showTab('batting')">BATTING</button>
       <button class="tab" onclick="showTab('defense')">DEFENSE</button>
-      <button class="tab" onclick="showTab('log')">LOG AT-BATS</button>
+      <button class="tab" onclick="showTab('log')"><span class="tab-label-full">LOG AT-BATS</span><span class="tab-label-short">LOG</span></button>
       <button class="tab" onclick="showTab('history')">HISTORY</button>
-      <button class="tab" onclick="showTab('gameday')" style="color:#f0b429;">🥎 GAME DAY</button>
+      <button class="tab" onclick="showTab('gameday')" style="color:#f0b429;"><span class="tab-label-full">🥎 GAME DAY</span><span class="tab-label-short">🥎 DAY</span></button>
       <button class="tab print-tab-btn" onclick="showTab('print')" style="color:#7dc0e8;">🖨 PRINT</button>
     </div>
   </div>
