@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Pabst Softball · Player Stats</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --grass:   #0a1a08;
+    --night:   #0f1f0c;
+    --panel:   #141f11;
+    --border:  #1e301a;
+    --lime:    #a8d832;
+    --gold:    #f0b429;
+    --chalk:   #e8f0e0;
+    --muted:   #6a8a55;
+    --sky:     #4a9eda;
+    --red:     #d64045;
+    --up:      #4caf74;
+    --down:    #d64045;
+    --flat:    #8aab6a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--grass);
+    color: var(--chalk);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  /* ── ACCESS GATE ── */
+  #gate {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 0;
+  }
+
+  .gate-logo {
+    font-family: Oswald, sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--lime);
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+
+  .gate-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 40px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .gate-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .code-inputs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .code-input {
+    width: 54px;
+    height: 64px;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--chalk);
+    font-family: Oswald, sans-serif;
+    font-size: 2rem;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s;
+    caret-color: var(--lime);
+  }
+
+  .code-input:focus { border-color: var(--lime); }
+
+  .gate-error {
+    font-size: 0.8rem;
+    color: var(--red);
+    min-height: 18px;
+    margin-bottom: 18px;
+    text-align: center;
+  }
+
+  .gate-btn {
+    background: var(--lime);
+    color: #0a1a08;
+    font-family: Oswald, sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    border: none;
+    border-radius: 8px;
+    padding: 14px 36px;
+    cursor: pointer;
+    width: 100%;
+    max-width: 232px;
+    transition: opacity 0.15s;
+  }
+
+  .gate-btn:active { opacity: 0.8; }
+
+  /* ── PORTAL ── */
+  #portal { display: none; }
+
+  .portal-header {
+    background: var(--night);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .portal-title {
+    font-family: Oswald, sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--lime);
+    letter-spacing: 0.05em;
+  }
+
+  .portal-sub {
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .sync-dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+  .sync-dot.live { background: var(--up); }
+
+  /* ── LEGEND ── */
+  .legend {
+    margin: 14px 16px 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+  }
+
+  .legend-item {
+    font-size: 0.75rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-val {
+    font-family: Oswald, sans-serif;
+    font-size: 0.95rem;
+    color: var(--chalk);
+  }
+
+  /* ── PLAYER CARDS ── */
+  .player-list {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .player-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .card-name-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .card-name {
+    font-family: Oswald, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--chalk);
+    letter-spacing: 0.02em;
+  }
+
+  .card-num {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* ── BA DISPLAY ── */
+  .ba-group {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+  }
+
+  .ba-block {
+    text-align: right;
+  }
+
+  .ba-value {
+    font-family: Oswald, sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--lime);
+  }
+
+  .ba-value.season {
+    font-size: 1.1rem;
+    color: var(--gold);
+  }
+
+  .ba-label {
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* ── TREND ── */
+  .trend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  .trend-arrow {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .trend-up   { color: var(--up); }
+  .trend-down { color: var(--down); }
+  .trend-flat { color: var(--flat); }
+
+  .trend-label {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ── POSITION BADGES ── */
+  .pos-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .pos-label-head {
+    font-size: 0.65rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-right: 2px;
+  }
+
+  .pos-badge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(168,216,50,0.1);
+    color: var(--lime);
+    border: 1px solid rgba(168,216,50,0.25);
+    font-weight: 500;
+  }
+
+  .no-data {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ── EMPTY / LOADING ── */
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 60px 20px;
+    font-size: 0.9rem;
+  }
+
+  .spinner {
+    width: 28px; height: 28px;
+    border: 3px solid var(--border);
+    border-top-color: var(--lime);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 60px auto 12px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── FOOTER ── */
+  .portal-footer {
+    text-align: center;
+    font-size: 0.7rem;
+    color: var(--muted);
+    padding: 24px 16px 0;
+    letter-spacing: 0.05em;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ACCESS GATE -->
+<div id="gate">
+  <div class="gate-logo">🥎 Pabst Softball</div>
+  <div class="gate-sub">Player Stats Portal</div>
+  <div class="gate-label">Enter access code</div>
+  <div class="code-inputs">
+    <input class="code-input" id="c0" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="code-input" id="c1" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="code-input" id="c2" maxlength="1" type="tel" inputmode="numeric" />
+    <input class="code-input" id="c3" maxlength="1" type="tel" inputmode="numeric" />
+  </div>
+  <div class="gate-error" id="gate-error"></div>
+  <button class="gate-btn" onclick="checkCode()">Enter</button>
+</div>
+
+<!-- PORTAL -->
+<div id="portal">
+  <div class="portal-header">
+    <div class="portal-title">🥎 Pabst Softball</div>
+    <div class="portal-sub">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span id="sync-label">Connecting…</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="legend-val">0.00–2.00</span> scale · K=0, Walk/Out=1, Hit=2</div>
+    <div class="legend-item"><span class="legend-val">Form</span> = last 5 at-bats avg</div>
+    <div class="legend-item"><span class="legend-val">Season</span> = all-time avg</div>
+  </div>
+
+  <div class="player-list" id="player-list">
+    <div><div class="spinner"></div><div class="empty-state">Loading…</div></div>
+  </div>
+
+  <div class="portal-footer">Read-only · Stats update live · 🥎 Pabst Softball</div>
+</div>
+
+<script>
+// ── FIREBASE ──
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyD25HXT51zSlF4zkoySgGgpT37Tdhi2cQs",
+  authDomain:        "pabst-softball.firebaseapp.com",
+  projectId:         "pabst-softball",
+  storageBucket:     "pabst-softball.firebasestorage.app",
+  messagingSenderId: "1061574461259",
+  appId:             "1:1061574461259:web:a753f526cdae3663da4ace"
+};
+
+const PTS = { K: 0, out: 1, walk: 1, hit: 2 };
+let db = null;
+let appState = { players: [], atBats: [], defensiveLineups: [] };
+
+// ── ACCESS CODE ──
+const SESSION_KEY = 'pabst_portal_auth';
+const DEFAULT_CODE = '1234'; // coach can change this in the coach app settings
+
+function getStoredCode() {
+  // Code is stored in Firebase under pabst/settings
+  return sessionStorage.getItem(SESSION_KEY);
+}
+
+// Auto-advance code inputs
+document.querySelectorAll('.code-input').forEach((input, i, all) => {
+  input.addEventListener('input', () => {
+    input.value = input.value.replace(/\D/g, '').slice(-1);
+    if (input.value && i < all.length - 1) all[i + 1].focus();
+    if (i === all.length - 1 && input.value) checkCode();
+  });
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !input.value && i > 0) all[i - 1].focus();
+    if (e.key === 'Enter') checkCode();
+  });
+});
+
+function getEnteredCode() {
+  return [...document.querySelectorAll('.code-input')].map(i => i.value).join('');
+}
+
+function checkCode() {
+  const entered = getEnteredCode();
+  if (entered.length < 4) {
+    document.getElementById('gate-error').textContent = 'Enter all 4 digits';
+    return;
+  }
+  // Load settings from Firebase to verify code
+  if (!db) initFirebase(() => verifyCode(entered));
+  else verifyCode(entered);
+}
+
+function verifyCode(entered) {
+  db.collection('pabst').doc('settings').get().then(snap => {
+    const code = snap.exists ? (snap.data().accessCode || DEFAULT_CODE) : DEFAULT_CODE;
+    if (entered === code) {
+      sessionStorage.setItem(SESSION_KEY, 'ok');
+      showPortal();
+    } else {
+      document.getElementById('gate-error').textContent = 'Incorrect code — try again';
+      document.querySelectorAll('.code-input').forEach(i => i.value = '');
+      document.getElementById('c0').focus();
+    }
+  }).catch(() => {
+    // If settings doc doesn't exist yet, fall back to default code
+    if (entered === DEFAULT_CODE) {
+      sessionStorage.setItem(SESSION_KEY, 'ok');
+      showPortal();
+    } else {
+      document.getElementById('gate-error').textContent = 'Incorrect code — try again';
+      document.querySelectorAll('.code-input').forEach(i => i.value = '');
+      document.getElementById('c0').focus();
+    }
+  });
+}
+
+function showPortal() {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('portal').style.display = 'block';
+  startLiveData();
+}
+
+// ── FIREBASE INIT ──
+function initFirebase(cb) {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    if (cb) cb();
+  } catch(e) {
+    console.error('Firebase init failed', e);
+  }
+}
+
+function startLiveData() {
+  setSyncStatus('connecting');
+  db.collection('pabst').doc('gamedata').onSnapshot(snap => {
+    if (snap.exists) {
+      const d = snap.data();
+      appState.players          = d.players          || [];
+      appState.atBats           = d.atBats           || [];
+      appState.defensiveLineups = d.defensiveLineups || [];
+      renderPlayers();
+    }
+    setSyncStatus('live');
+  }, err => {
+    console.error(err);
+    setSyncStatus('error');
+  });
+}
+
+function setSyncStatus(s) {
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-label');
+  if (s === 'connecting') { dot.className = 'sync-dot'; label.textContent = 'Connecting…'; }
+  if (s === 'live')       { dot.className = 'sync-dot live'; label.textContent = 'Live'; }
+  if (s === 'error')      { dot.className = 'sync-dot'; label.textContent = 'Offline'; }
+}
+
+// ── STATS ──
+function getRollingAvg(id) {
+  const abs = [...appState.atBats]
+    .filter(a => a.playerId === id)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 5);
+  if (!abs.length) return { avg: null, count: 0 };
+  const pts = abs.reduce((s, a) => s + (PTS[a.outcome] ?? 0), 0);
+  return { avg: pts / abs.length, count: abs.length };
+}
+
+function getSeasonAvg(id) {
+  const abs = appState.atBats.filter(a => a.playerId === id);
+  if (!abs.length) return { avg: null, count: 0 };
+  const pts = abs.reduce((s, a) => s + (PTS[a.outcome] ?? 0), 0);
+  return { avg: pts / abs.length, count: abs.length };
+}
+
+function getTrend(id) {
+  // Compare last 5 ABs avg vs previous 5 ABs avg
+  const abs = [...appState.atBats]
+    .filter(a => a.playerId === id)
+    .sort((a, b) => b.ts - a.ts);
+  if (abs.length < 3) return 'new';
+  const recent   = abs.slice(0, 5);
+  const previous = abs.slice(5, 10);
+  if (!previous.length) return 'new';
+  const avgRecent   = recent.reduce((s,a) => s + (PTS[a.outcome]??0), 0) / recent.length;
+  const avgPrevious = previous.reduce((s,a) => s + (PTS[a.outcome]??0), 0) / previous.length;
+  const diff = avgRecent - avgPrevious;
+  if (diff > 0.15)  return 'up';
+  if (diff < -0.15) return 'down';
+  return 'flat';
+}
+
+function getLastPositions(id, n = 3) {
+  // Pull from saved defensive lineups, newest first, skip bench
+  const entries = [...appState.defensiveLineups]
+    .filter(l => {
+      const asgn = l.assignments || {};
+      return Object.entries(asgn).some(([pos, pid]) => pid === id && !pos.startsWith('Bench'));
+    })
+    .reverse()
+    .slice(0, n);
+  return entries.map(l => {
+    const asgn = l.assignments || {};
+    return Object.entries(asgn).find(([pos, pid]) => pid === id && !pos.startsWith('Bench'))?.[0];
+  }).filter(Boolean);
+}
+
+// ── RENDER ──
+function renderPlayers() {
+  const list = document.getElementById('player-list');
+  if (!appState.players.length) {
+    list.innerHTML = '<div class="empty-state">No players yet — check back soon!</div>';
+    return;
+  }
+
+  const sorted = [...appState.players].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  list.innerHTML = sorted.map(p => {
+    const rolling = getRollingAvg(p.id);
+    const season  = getSeasonAvg(p.id);
+    const trend   = getTrend(p.id);
+    const positions = getLastPositions(p.id, 3);
+
+    const rollingDisplay = rolling.avg !== null ? rolling.avg.toFixed(2) : '—';
+    const seasonDisplay  = season.avg  !== null ? season.avg.toFixed(2)  : '—';
+
+    const trendIcon = {
+      up:   '<span class="trend-arrow trend-up">↑</span><span class="trend-label">Improving</span>',
+      down: '<span class="trend-arrow trend-down">↓</span><span class="trend-label">Tailing off</span>',
+      flat: '<span class="trend-arrow trend-flat">→</span><span class="trend-label">Steady</span>',
+      new:  '<span class="trend-label" style="color:var(--muted);">Not enough data yet</span>',
+    }[trend];
+
+    const posBadges = positions.length
+      ? positions.map(pos => `<span class="pos-badge">${pos}</span>`).join('')
+      : '<span class="no-data">No games recorded yet</span>';
+
+    return `
+    <div class="player-card">
+      <div class="card-top">
+        <div>
+          <div class="card-name-row">
+            <div class="card-name">${p.name}</div>
+            ${p.number ? `<div class="card-num">#${p.number}</div>` : ''}
+          </div>
+        </div>
+        <div class="ba-group">
+          <div class="ba-block">
+            <div class="ba-value season">${seasonDisplay}</div>
+            <div class="ba-label">Season</div>
+          </div>
+          <div class="ba-block">
+            <div class="ba-value">${rollingDisplay}</div>
+            <div class="ba-label">Form</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="trend-row">${trendIcon}</div>
+
+      <div class="pos-row">
+        <span class="pos-label-head">Recent positions</span>
+        ${posBadges}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── INIT ──
+initFirebase();
+if (sessionStorage.getItem(SESSION_KEY) === 'ok') showPortal();
+else document.getElementById('c0').focus();
+</script>
+</body>
+</html>
