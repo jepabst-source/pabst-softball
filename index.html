@@ -1885,11 +1885,9 @@ function buildRotation() {
     const benched = new Set();
     if (benchCount > 0) {
       const isDevInning = ing === 2;
-      // benchHistory: total times sat across all saved games + current game so far
+      // benchHistory: total bench appearances across all saved games
       const benchHistory = (p) => {
-        const saved = (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
-        const thisGame = countBenchedInGame(ing - 1, p.id);
-        return saved + thisGame * 10; // weight current game heavily so no one sits twice if avoidable
+        return (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
       };
       const benchSort = isDevInning
         ? () => (Math.random() - 0.5)
@@ -2083,9 +2081,7 @@ function regenerateFromInning(startIng) {
       const benchedPrev = new Set([prevAsgn['Bench 1'], prevAsgn['Bench 2']].filter(Boolean));
       const isDevInning = ing === 2;
       const benchHistory = (p) => {
-        const saved = (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
-        const thisGame = countBenchedInGame(ing - 1, p.id);
-        return saved + thisGame * 10;
+        return (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
       };
       const benchSort = isDevInning
         ? () => (Math.random() - 0.5)
@@ -2152,9 +2148,7 @@ function reshuffleInning(ing) {
   const benched = new Set();
   if (benchCount > 0) {
     const benchHistory = (p) => {
-      const saved = (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
-      const thisGame = countBenchedInGame(ing - 1, p.id);
-      return saved + thisGame * 10;
+      return (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
     };
     const benchSort = (a, b) => {
       const ratingDiff = a.defRating - b.defRating;
