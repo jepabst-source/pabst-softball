@@ -1885,9 +1885,16 @@ function buildRotation() {
     const benched = new Set();
     if (benchCount > 0) {
       const isDevInning = ing === 2;
+      // benchHistory: total times sat across all saved games
+      const benchHistory = (p) => (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
+      // For innings 1&3: sort by rating ASC, break ties by bench history ASC (least bench time sits next), tiny jitter within that
       const benchSort = isDevInning
-        ? () => (Math.random() - 0.5)                                          // inning 2: fully random
-        : (a, b) => (a.defRating - b.defRating) + (Math.random() - 0.5) * 0.4; // innings 1&3: weakest first, tiny jitter
+        ? () => (Math.random() - 0.5)
+        : (a, b) => {
+            const ratingDiff = a.defRating - b.defRating;
+            if (Math.abs(ratingDiff) >= 1) return ratingDiff; // different rating: lower sits first
+            return (benchHistory(a) - benchHistory(b)) + (Math.random() - 0.5) * 0.4; // same rating: fewest bench appearances sits next
+          };
 
       const pass1 = sorted.filter(p => !used.has(p.id) && countBenchedInGame(ing-1,p.id)===0 && !benchedLastInning.has(p.id)).sort(benchSort);
       for (const p of pass1) { if (benched.size>=benchCount) break; benched.add(p.id); used.add(p.id); }
@@ -2072,9 +2079,14 @@ function regenerateFromInning(startIng) {
       const prevAsgn = currentGame[ing - 1] || {};
       const benchedPrev = new Set([prevAsgn['Bench 1'], prevAsgn['Bench 2']].filter(Boolean));
       const isDevInning = ing === 2;
+      const benchHistory = (p) => (posHistory[p.id]?.['Bench 1'] || 0) + (posHistory[p.id]?.['Bench 2'] || 0);
       const benchSort = isDevInning
         ? () => (Math.random() - 0.5)
-        : (a, b) => (a.defRating - b.defRating) + (Math.random() - 0.5) * 0.4;
+        : (a, b) => {
+            const ratingDiff = a.defRating - b.defRating;
+            if (Math.abs(ratingDiff) >= 1) return ratingDiff;
+            return (benchHistory(a) - benchHistory(b)) + (Math.random() - 0.5) * 0.4;
+          };
       const rp1 = sorted.filter(p => !used.has(p.id) && countBenchedInGame(ing-1,p.id)===0 && !benchedPrev.has(p.id)).sort(benchSort);
       for (const p of rp1) { if (benched.size>=benchCount) break; benched.add(p.id); used.add(p.id); }
       if (benched.size < benchCount) {
