@@ -793,8 +793,14 @@
       color: #111 !important;
       font-family: 'Source Sans 3', Arial, sans-serif;
     }
-    header, .tab-bar, .main > .section:not(#tab-print) { display: none !important; }
-    #tab-print { display: block !important; }
+    header, .tab-bar, .main > .section:not(#tab-print):not(#tab-history) { display: none !important; }
+    body.print-history #tab-print { display: none !important; }
+    body.print-history #tab-history { display: block !important; }
+    body:not(.print-history) #tab-history { display: none !important; }
+    body:not(.print-history) #tab-print { display: block !important; }
+    /* history print cleanup */
+    body.print-history .btn, body.print-history .form-panel, body.print-history .info-note { display: none !important; }
+    body.print-history #history-content { display: block !important; }
     .print-page {
       background: #fff;
       color: #111;
@@ -1152,7 +1158,10 @@
 <div id="tab-history" class="section">
   <div class="section-header">
     <div class="section-title">Position History</div>
-    <button class="btn btn-secondary btn-sm" onclick="exportData()">📤 Export JSON</button>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="document.body.classList.add('print-history');window.print();document.body.classList.remove('print-history');">🖨 Print</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportData()">📤 Export JSON</button>
+    </div>
   </div>
   <div class="info-note">Tracks how many times each player has appeared at each position across all saved defensive lineups.</div>
 
