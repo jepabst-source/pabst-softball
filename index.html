@@ -2060,14 +2060,13 @@ function renderInningCards() {
       </div>`;
     };
 
-    // Detect back-to-back bench violations for warning
+    // Detect if any benched player has already sat earlier this game
     const benchWarnings = [];
     if (ing > 1) {
       for (const bp of benchPos) {
         const pid = asgn[bp];
         if (!pid) continue;
-        const prev = currentGame[ing-1];
-        if (prev?.['Bench 1'] == pid || prev?.['Bench 2'] == pid) {
+        if (countBenchedInGame(ing - 1, pid) > 0) {
           const name = state.players.find(p=>p.id==pid)?.name || '?';
           benchWarnings.push(name);
         }
@@ -2138,6 +2137,18 @@ function renderInning4Cards() {
     if (!el) return;
     const infieldPos = POSITIONS.infield;
     const outfieldPos = POSITIONS.outfield;
+
+    // Warn if any benched player already sat earlier this game
+    const benchWarnings = [];
+    for (const bp of benchPos) {
+      const pid = assignment[bp];
+      if (!pid) continue;
+      if (countBenchedInGame(3, pid) > 0) {
+        const name = state.players.find(p=>p.id==pid)?.name || '?';
+        benchWarnings.push(name);
+      }
+    }
+
     el.innerHTML = `
       <div class="inning-col">
         <div class="inning-col-label">INFIELD</div>
@@ -2147,6 +2158,7 @@ function renderInning4Cards() {
         <div class="inning-col-label">OUTFIELD</div>
         ${outfieldPos.map(pos => makeRow(pos, assignment, type)).join('')}
         ${benchPos.length ? `<div class="inning-col-label" style="margin-top:10px;">BENCH</div>${benchPos.map(pos => makeRow(pos, assignment, type)).join('')}` : ''}
+        ${benchWarnings.length ? `<div class="bench-warning" style="display:block;">⚠ ${benchWarnings.join(', ')} already benched this game!</div>` : ''}
       </div>`;
   };
 
