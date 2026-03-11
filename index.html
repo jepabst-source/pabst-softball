@@ -2869,8 +2869,8 @@ function renderPrintTab() {
   // Page 2: 4th inning pocket card — use current edited state
   const lfg = Object.keys(currentLFG).length ? currentLFG : buildLFGLineup();
   const oor = Object.keys(currentOOR).length ? currentOOR : buildOORLineup4();
-  const lfgHTML = renderPocketCard(lfg, '⚡ LFG — WIN MODE', 'pocket-lfg');
-  const oorHTML = renderPocketCard(oor, '🔄 OOR — SHUFFLE', 'pocket-oor');
+  const lfgHTML = renderPocketCard(lfg, 'LFG', 'pocket-lfg');
+  const oorHTML = renderPocketCard(oor, 'OOR', 'pocket-oor');
 
   el.innerHTML = `
     <div class="print-header">
