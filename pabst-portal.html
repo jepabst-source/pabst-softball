@@ -374,6 +374,7 @@
     <div class="legend-item"><span class="legend-val">0.00–2.00</span> scale · K=0, Walk/Hit-Out=1, Hit=2</div>
     <div class="legend-item"><span class="legend-val">Form</span> = last 5 at-bats avg</div>
     <div class="legend-item"><span class="legend-val">Season</span> = all-time avg</div>
+    <div class="legend-item"><span class="legend-val">OBP</span> = on-base % (hits + walks ÷ at-bats)</div>
   </div>
 
   <div class="player-list" id="player-list">
@@ -519,6 +520,13 @@ function getSeasonAvg(id) {
   return { avg: pts / abs.length, count: abs.length };
 }
 
+function getOBP(id) {
+  const abs = appState.atBats.filter(a => a.playerId === id);
+  if (!abs.length) return null;
+  const onBase = abs.filter(a => a.outcome === 'hit' || a.outcome === 'walk').length;
+  return onBase / abs.length;
+}
+
 function getTrend(id) {
   // Compare last 5 ABs avg vs previous 5 ABs avg
   const abs = [...appState.atBats]
@@ -566,11 +574,13 @@ function renderPlayers() {
   list.innerHTML = sorted.map(p => {
     const rolling = getRollingAvg(p.id);
     const season  = getSeasonAvg(p.id);
+    const obp     = getOBP(p.id);
     const trend   = getTrend(p.id);
     const positions = getLastPositions(p.id, 3);
 
     const rollingDisplay = rolling.avg !== null ? rolling.avg.toFixed(2) : '—';
     const seasonDisplay  = season.avg  !== null ? season.avg.toFixed(2)  : '—';
+    const obpDisplay     = obp !== null ? obp.toFixed(3).replace(/^0/, '') : '—';
 
     const trendIcon = {
       up:   '<span class="trend-arrow trend-up">↑</span><span class="trend-label">Improving</span>',
@@ -600,6 +610,10 @@ function renderPlayers() {
           <div class="ba-block">
             <div class="ba-value">${rollingDisplay}</div>
             <div class="ba-label">Form</div>
+          </div>
+          <div class="ba-block">
+            <div class="ba-value" style="color:var(--sky);">${obpDisplay}</div>
+            <div class="ba-label">OBP</div>
           </div>
         </div>
       </div>
