@@ -2283,7 +2283,7 @@ function renderHistory() {
         </tr>
       </thead>
       <tbody>
-        ${state.players.map(p => {
+        ${[...state.players].sort((a,b) => b.defRating - a.defRating || a.name.localeCompare(b.name)).map(p => {
           const s = getPlayerStats(p.id);
           const bench = (hist[p.id]?.['Bench 1'] || 0) + (hist[p.id]?.['Bench 2'] || 0);
           return `<tr>
