@@ -1472,7 +1472,9 @@ function getPlayerStats(id) {
   const abs = state.atBats.filter(a => a.playerId === id);
   const pts = abs.reduce((s, a) => s + PTS[a.outcome], 0);
   const games = [...new Set(abs.map(a => a.game))].length;
-  return { abs: abs.length, pts, games };
+  const onBase = abs.filter(a => a.outcome === 'hit' || a.outcome === 'walk').length;
+  const obp = abs.length ? (onBase / abs.length) : null;
+  return { abs: abs.length, pts, games, obp };
 }
 
 function renderRoster() {
@@ -1501,6 +1503,7 @@ function renderRoster() {
         <div class="stat-badge"><strong>${s.pts}</strong> pts</div>
         <div class="stat-badge"><strong>${s.abs}</strong> ABs</div>
         <div class="stat-badge"><strong>${s.games}</strong> games</div>
+        ${s.obp !== null ? `<div class="stat-badge" title="On-Base Percentage"><strong>${s.obp.toFixed(3).replace(/^0/, '')}</strong> OBP</div>` : ''}
       </div>
       <div class="def-rating">${stars}</div>
       ${prefBadges ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:7px;">${prefBadges}</div>` : ''}
