@@ -1106,12 +1106,14 @@
       <div class="inning-card">
         <div class="inning-card-header">
           <div class="inning-card-title">⚡ 4-LFG <span style="font-size:0.65rem;background:rgba(45,90,27,0.4);color:#a8d832;border:1px solid rgba(168,216,50,0.3);border-radius:4px;padding:1px 7px;letter-spacing:0.08em;vertical-align:middle;">WIN MODE</span></div>
+          <button class="btn btn-secondary btn-sm" onclick="currentLFG={};renderInning4Cards();">🔀</button>
         </div>
         <div class="inning-card-body" id="lfg-card-body"></div>
       </div>
       <div class="inning-card">
         <div class="inning-card-header">
           <div class="inning-card-title">🔄 4-OOR <span style="font-size:0.65rem;background:rgba(100,100,100,0.3);color:#aaa;border:1px solid rgba(150,150,150,0.3);border-radius:4px;padding:1px 7px;letter-spacing:0.08em;vertical-align:middle;">SHUFFLE</span></div>
+          <button class="btn btn-secondary btn-sm" onclick="currentOOR={};renderInning4Cards();">🔀</button>
         </div>
         <div class="inning-card-body" id="oor-card-body"></div>
       </div>
@@ -1779,6 +1781,8 @@ function saveScore() {
 let inningCount = 3;
 // currentGame[inning] = {pos: playerId}  (inning is 1-based string key)
 let currentGame = {};  // { '1': {Pitcher: id, ...}, '2': {...}, '3': {...} }
+let currentLFG  = {};  // inning 4 LFG assignment
+let currentOOR  = {};  // inning 4 OOR assignment
 
 function setInningCount(n, btn) {
   inningCount = n;
@@ -1907,6 +1911,8 @@ function buildRotation() {
 
   let benchedLastInning = new Set();
   currentGame = {};
+  currentLFG = {};
+  currentOOR = {};
 
   for (let ing = 1; ing <= inningCount; ing++) {
     const assignment = {};
@@ -2100,49 +2106,65 @@ function renderInningCards() {
 }
 
 function renderInning4Cards() {
-  const activePlayers = getActivePlayers();
-  const lfg = buildLFGLineup();
-  const oor = buildOORLineup4();
+  // Only regenerate from scratch if empty — preserve manual edits
+  if (!Object.keys(currentLFG).length) currentLFG = buildLFGLineup() || {};
+  if (!Object.keys(currentOOR).length) currentOOR = buildOORLineup4() || {};
 
-  const makeCardBody = (assignment, containerId) => {
+  const activePlayers = getActivePlayers();
+  const activeCt = activePlayers.length;
+  const benchCount = Math.max(0, activeCt - 9);
+  const allFieldPos = [...POSITIONS.infield, ...POSITIONS.outfield];
+  const benchPos = POSITIONS.bench.slice(0, benchCount);
+  const allPos = [...allFieldPos, ...benchPos];
+
+  const makeRow = (pos, assignment, type) => {
+    const isCatcher = pos === 'Catcher';
+    const pid = assignment[pos];
+    const isBench = pos.startsWith('Bench');
+    const posClass = POSITIONS.infield.includes(pos) ? 'pos-infield' : POSITIONS.outfield.includes(pos) ? 'pos-outfield' : 'pos-bench';
+    const opts = `<option value="">— —</option>` +
+      activePlayers.map(p => {
+        const catchNote = isCatcher && !p.canCatch ? ' ⚠' : isCatcher && p.canCatch ? ' 🎯' : '';
+        return `<option value="${p.id}" ${pid == p.id ? 'selected':''}>${p.name}${catchNote}</option>`;
+      }).join('');
+    return `<div class="position-row" style="margin-bottom:4px;">
+      <div class="pos-label"><span class="pos-pill ${posClass}" style="font-size:0.65rem;">${pos}</span></div>
+      <select class="pos-select" style="font-size:0.82rem;" onchange="updateInning4('${type}','${pos}',this.value)">${opts}</select>
+    </div>`;
+  };
+
+  const renderCard = (assignment, type, containerId) => {
     const el = document.getElementById(containerId);
-    if (!el || !assignment) return;
+    if (!el) return;
     const infieldPos = POSITIONS.infield;
     const outfieldPos = POSITIONS.outfield;
-    const benchPos = POSITIONS.bench.filter(p => assignment[p]);
-
-    const makeRow = (pos) => {
-      const pid = assignment[pos];
-      const p = pid ? state.players.find(x => x.id == pid) : null;
-      return `<div class="position-row">
-        <div class="pos-label"><span class="pos-pill ${POSITIONS.infield.includes(pos) ? 'pos-infield' : 'pos-outfield'}">${pos}</span></div>
-        <div class="pos-player">${p ? p.name : '—'}</div>
-      </div>`;
-    };
-    const makeBenchRow = (pos) => {
-      const pid = assignment[pos];
-      const p = pid ? state.players.find(x => x.id == pid) : null;
-      if (!p) return '';
-      return `<div class="position-row" style="opacity:0.6;">
-        <div class="pos-label"><span class="pos-pill pos-bench">Bench</span></div>
-        <div class="pos-player">${p.name}</div>
-      </div>`;
-    };
-
     el.innerHTML = `
       <div class="inning-col">
         <div class="inning-col-label">INFIELD</div>
-        ${infieldPos.map(makeRow).join('')}
+        ${infieldPos.map(pos => makeRow(pos, assignment, type)).join('')}
       </div>
       <div class="inning-col">
         <div class="inning-col-label">OUTFIELD</div>
-        ${outfieldPos.map(makeRow).join('')}
-        ${benchPos.length ? `<div class="inning-col-label" style="margin-top:10px;">BENCH</div>${benchPos.map(makeBenchRow).join('')}` : ''}
+        ${outfieldPos.map(pos => makeRow(pos, assignment, type)).join('')}
+        ${benchPos.length ? `<div class="inning-col-label" style="margin-top:10px;">BENCH</div>${benchPos.map(pos => makeRow(pos, assignment, type)).join('')}` : ''}
       </div>`;
   };
 
-  makeCardBody(lfg, 'lfg-card-body');
-  makeCardBody(oor, 'oor-card-body');
+  renderCard(currentLFG, 'lfg', 'lfg-card-body');
+  renderCard(currentOOR, 'oor', 'oor-card-body');
+}
+
+function updateInning4(type, pos, val) {
+  const assignment = type === 'lfg' ? currentLFG : currentOOR;
+  const newPlayerId = val ? parseInt(val) : null;
+  // Swap if player already assigned elsewhere in this card
+  if (newPlayerId) {
+    const oldPos = Object.keys(assignment).find(p => assignment[p] === newPlayerId && p !== pos);
+    const displaced = assignment[pos];
+    if (oldPos) assignment[oldPos] = displaced || null;
+  }
+  assignment[pos] = newPlayerId;
+  renderInning4Cards();
 }
 
 function updateAssignment(inning, pos, val) {
