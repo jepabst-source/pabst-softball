@@ -527,21 +527,28 @@ function getOBP(id) {
   return onBase / abs.length;
 }
 
-function getTrend(id) {
-  // Compare last 5 ABs avg vs previous 5 ABs avg
+function getTrends(id) {
   const abs = [...appState.atBats]
     .filter(a => a.playerId === id)
     .sort((a, b) => b.ts - a.ts);
-  if (abs.length < 3) return 'new';
+  if (abs.length < 3) return [];
   const recent   = abs.slice(0, 5);
   const previous = abs.slice(5, 10);
-  if (!previous.length) return 'new';
+  if (!previous.length) return [];
+
+  const trends = [];
+
+  // Batting avg trend
   const avgRecent   = recent.reduce((s,a) => s + (PTS[a.outcome]??0), 0) / recent.length;
   const avgPrevious = previous.reduce((s,a) => s + (PTS[a.outcome]??0), 0) / previous.length;
-  const diff = avgRecent - avgPrevious;
-  if (diff > 0.15)  return 'up';
-  if (diff < -0.15) return 'down';
-  return 'flat';
+  if (avgRecent - avgPrevious > 0.15) trends.push('Batting');
+
+  // OBP trend
+  const obpRecent   = recent.filter(a => a.outcome === 'hit' || a.outcome === 'walk').length / recent.length;
+  const obpPrevious = previous.filter(a => a.outcome === 'hit' || a.outcome === 'walk').length / previous.length;
+  if (obpRecent - obpPrevious > 0.15) trends.push('OBP');
+
+  return trends;
 }
 
 function getLastPositions(id, n = 3) {
@@ -575,19 +582,16 @@ function renderPlayers() {
     const rolling = getRollingAvg(p.id);
     const season  = getSeasonAvg(p.id);
     const obp     = getOBP(p.id);
-    const trend   = getTrend(p.id);
+    const trends  = getTrends(p.id);
     const positions = getLastPositions(p.id, 3);
 
     const rollingDisplay = rolling.avg !== null ? rolling.avg.toFixed(2) : '—';
     const seasonDisplay  = season.avg  !== null ? season.avg.toFixed(2)  : '—';
     const obpDisplay     = obp !== null ? obp.toFixed(3).replace(/^0/, '') : '—';
 
-    const trendIcon = {
-      up:   '<span class="trend-arrow trend-up">↑</span><span class="trend-label">Improving</span>',
-      down: '',
-      flat: '',
-      new:  '',
-    }[trend];
+    const trendIcon = trends.length
+      ? trends.map(t => `<span class="trend-arrow trend-up">↑</span><span class="trend-label">${t}</span>`).join(' ')
+      : '';
 
     const posBadges = positions.length
       ? positions.map(pos => `<span class="pos-badge">${pos}</span>`).join('')
