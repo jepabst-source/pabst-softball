@@ -373,7 +373,7 @@
   <div class="legend">
     <div class="legend-item"><span class="legend-val">0.00–2.00</span> scale · K=0, Walk/Hit-Out=1, Hit=2</div>
     <div class="legend-item"><span class="legend-val">Form</span> = last 5 at-bats avg</div>
-    <div class="legend-item"><span class="legend-val">Season</span> = all-time avg</div>
+    <div class="legend-item"><span class="legend-val">Season</span> = total points all-time</div>
     <div class="legend-item"><span class="legend-val">OBP</span> = on-base % (hits + walks ÷ at-bats)</div>
   </div>
 
@@ -517,7 +517,7 @@ function getSeasonAvg(id) {
   const abs = appState.atBats.filter(a => a.playerId === id);
   if (!abs.length) return { avg: null, count: 0 };
   const pts = abs.reduce((s, a) => s + (PTS[a.outcome] ?? 0), 0);
-  return { avg: pts / abs.length, count: abs.length };
+  return { avg: pts / abs.length, count: abs.length, pts };
 }
 
 function getOBP(id) {
@@ -586,7 +586,7 @@ function renderPlayers() {
     const positions = getLastPositions(p.id, 3);
 
     const rollingDisplay = rolling.avg !== null ? rolling.avg.toFixed(2) : '—';
-    const seasonDisplay  = season.avg  !== null ? season.avg.toFixed(2)  : '—';
+    const seasonDisplay  = season.pts != null ? season.pts : '—';
     const obpDisplay     = obp !== null ? obp.toFixed(3).replace(/^0/, '') : '—';
 
     const trendIcon = trends.length
