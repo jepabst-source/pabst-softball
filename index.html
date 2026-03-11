@@ -858,6 +858,19 @@
     .print-pos-player { font-weight: 600; }
     .print-inning-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
     .no-print { display: none !important; }
+    .print-page-break { page-break-before: always; break-before: page; margin-top: 0; padding-top: 24px; }
+    .pocket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .pocket-card-label {
+      font-family: 'Oswald', sans-serif;
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+    .pocket-lfg { background: #2d5a1b; color: #fff; }
+    .pocket-oor { background: #555; color: #fff; }
   }
 
   /* Screen version of print tab */
@@ -894,6 +907,11 @@
   #tab-print .print-pos-name { width: 90px; color: #555; flex-shrink: 0; }
   #tab-print .print-pos-player { font-weight: 600; color: #111; }
   #tab-print .print-inning-cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  #tab-print .print-page-break { border-top: 3px dashed #ccc; margin-top: 32px; padding-top: 24px; }
+  #tab-print .pocket-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  #tab-print .pocket-card-label { font-family: 'Oswald', sans-serif; font-size: 1rem; letter-spacing: 0.12em; padding: 4px 10px; margin-bottom: 10px; border-radius: 4px; display: inline-block; }
+  #tab-print .pocket-lfg { background: #2d5a1b; color: #fff; }
+  #tab-print .pocket-oor { background: #555; color: #fff; }
 </style>
 </head>
 <body>
@@ -1227,7 +1245,7 @@
     <div class="section-title">Print Sheet</div>
     <button class="btn btn-primary" onclick="window.print()">🖨 Print</button>
     <button class="btn btn-secondary" onclick="renderPrintTab()">↻ Refresh</button>
-    <span style="font-size:0.8rem;color:#6a8a55;">Preview below — prints clean on one page</span>
+    <span style="font-size:0.8rem;color:#6a8a55;">Page 1: dugout card (innings 1–3) · Page 2: inning 4 pocket card (LFG / OOR)</span>
   </div>
   <div class="print-page" id="print-content">
     <!-- rendered by JS -->
@@ -2608,6 +2626,118 @@ function resetGameDay() {
 // ============================================================
 // PRINT
 // ============================================================
+function buildLFGLineup() {
+  // LFG = best available players at key positions, strongest lineup possible
+  const activePlayers = getActivePlayers();
+  if (!activePlayers.length) return null;
+  const posHistory = getPositionHistory();
+  const sorted = [...activePlayers].sort((a, b) => b.defRating - a.defRating);
+  const assignment = {};
+  const used = new Set();
+
+  // Pitcher: P1
+  const p1 = activePlayers.find(p => p.role === 'P1');
+  if (p1) { assignment['Pitcher'] = p1.id; used.add(p1.id); }
+
+  // Catcher: best available catcher
+  const catchers = activePlayers.filter(p => p.canCatch && !used.has(p.id));
+  if (catchers.length) { assignment['Catcher'] = catchers[0].id; used.add(catchers[0].id); }
+
+  // Fill positions: best rated players first, score by rating + history preference
+  const fieldPositions = [...POSITIONS.infield.filter(p => p !== 'Pitcher' && p !== 'Catcher'), ...POSITIONS.outfield];
+  for (const pos of fieldPositions) {
+    const avail = sorted.filter(p => !used.has(p.id));
+    if (!avail.length) break;
+    const scored = avail.map(p => ({
+      p,
+      score: p.defRating * 10
+        + ((p.prefPositions||[]).includes(pos) ? 5 : 0)
+        - (posHistory[p.id]?.[pos] || 0) * 0.5
+    })).sort((a, b) => b.score - a.score);
+    assignment[pos] = scored[0].p.id;
+    used.add(scored[0].p.id);
+  }
+
+  // Bench: whoever is left
+  const remaining = sorted.filter(p => !used.has(p.id));
+  if (remaining[0]) assignment['Bench 1'] = remaining[0].id;
+  if (remaining[1]) assignment['Bench 2'] = remaining[1].id;
+
+  return assignment;
+}
+
+function buildOORLineup4() {
+  // OOR = shuffle the deck, weaker players get field time, strong players rest
+  const activePlayers = getActivePlayers();
+  if (!activePlayers.length) return null;
+  const posHistory = getPositionHistory();
+  const sorted = [...activePlayers].sort((a, b) => a.defRating - b.defRating + (Math.random() - 0.5));
+  const assignment = {};
+  const used = new Set();
+
+  // Pitcher: P2 if exists, otherwise least-used pitcher
+  const p2 = activePlayers.find(p => p.role === 'P2');
+  const p1 = activePlayers.find(p => p.role === 'P1');
+  if (p2) { assignment['Pitcher'] = p2.id; used.add(p2.id); }
+  else if (p1) { assignment['Pitcher'] = p1.id; used.add(p1.id); }
+
+  // Catcher: least experienced catcher
+  const catchers = activePlayers.filter(p => p.canCatch && !used.has(p.id))
+    .sort((a, b) => (posHistory[a.id]?.['Catcher']||0) - (posHistory[b.id]?.['Catcher']||0));
+  if (catchers.length) { assignment['Catcher'] = catchers[0].id; used.add(catchers[0].id); }
+
+  // Bench top 2 strongest players (they get a rest)
+  const strong = [...activePlayers].filter(p => !used.has(p.id)).sort((a, b) => b.defRating - a.defRating);
+  const benchCount = Math.max(0, activePlayers.length - 9);
+  const benched = [];
+  for (const p of strong) {
+    if (benched.length >= benchCount) break;
+    benched.push(p); used.add(p.id);
+  }
+  if (benched[0]) assignment['Bench 1'] = benched[0].id;
+  if (benched[1]) assignment['Bench 2'] = benched[1].id;
+
+  // Fill field positions: lower-rated first, reward first-timers
+  const fieldPositions = [...POSITIONS.infield.filter(p => p !== 'Pitcher' && p !== 'Catcher'), ...POSITIONS.outfield];
+  for (const pos of fieldPositions) {
+    const avail = sorted.filter(p => !used.has(p.id));
+    if (!avail.length) break;
+    const scored = avail.map(p => ({
+      p,
+      score: -(posHistory[p.id]?.[pos] || 0) * 5 + (Math.random() * 2)
+    })).sort((a, b) => b.score - a.score);
+    assignment[pos] = scored[0].p.id;
+    used.add(scored[0].p.id);
+  }
+
+  return assignment;
+}
+
+function renderPocketCard(assignment, label, cssClass) {
+  if (!assignment) return `<div style="color:#aaa;font-size:0.85rem;">Generate a lineup first</div>`;
+  const allPos = [...POSITIONS.infield, ...POSITIONS.outfield, ...POSITIONS.bench];
+  let rows = '';
+  let benchStarted = false;
+  for (const pos of allPos) {
+    const pid = assignment[pos];
+    if (!pid) continue;
+    const p = state.players.find(x => x.id == pid);
+    const isBench = pos.startsWith('Bench');
+    if (isBench && !benchStarted) {
+      rows += `<div style="border-top:2px solid #333;margin-top:5px;padding-top:5px;"></div>`;
+      benchStarted = true;
+    }
+    rows += `<div class="print-pos-row" style="${isBench ? 'color:#888;' : ''}">
+      <div class="print-pos-name">${isBench ? 'Bench' : pos}</div>
+      <div class="print-pos-player">${p ? p.name : '—'}</div>
+    </div>`;
+  }
+  return `<div>
+    <div class="pocket-card-label ${cssClass}">${label}</div>
+    ${rows}
+  </div>`;
+}
+
 function renderPrintTab() {
   const el = document.getElementById('print-content');
   const order = gdBattingOrder();
@@ -2616,25 +2746,16 @@ function renderPrintTab() {
   const gameDate = document.getElementById('d-game-date')?.value || today;
 
   // Batting order HTML
-  const battingHTML = order.map((p, i) => {
-    const roleBadge = '';
-    return `<div class="print-batting-row">
-      <div class="print-batting-num">${i+1}</div>
-      <div class="print-batting-name">${p.name}${roleBadge}</div>
+  const battingHTML = order.map((p, i) => `<div class="print-batting-row">
+    <div class="print-batting-num">${i+1}</div>
+    <div class="print-batting-name">${p.name}</div>
+  </div>`).join('');
 
-    </div>`;
-  }).join('');
-
-  // Defensive innings HTML
-  const maxInn = inningCount || 3;
+  // Innings 1-3 defensive HTML
   let defHTML = '';
-  for (let ing = 1; ing <= maxInn; ing++) {
+  for (let ing = 1; ing <= 3; ing++) {
     const asgn = currentGame[ing] || {};
-    const rows = ALL_POSITIONS.filter(pos => {
-      // Skip empty bench slots entirely on print
-      if (pos.startsWith('Bench') && !asgn[pos]) return false;
-      return true;
-    }).map(pos => {
+    const rows = ALL_POSITIONS.filter(pos => !(pos.startsWith('Bench') && !asgn[pos])).map(pos => {
       const pid = asgn[pos];
       const p = pid ? state.players.find(x => x.id == pid) : null;
       const isBench = pos.startsWith('Bench');
@@ -2649,6 +2770,12 @@ function renderPrintTab() {
       ${rows}
     </div>`;
   }
+
+  // Page 2: 4th inning pocket card
+  const lfg = buildLFGLineup();
+  const oor = buildOORLineup4();
+  const lfgHTML = renderPocketCard(lfg, '⚡ LFG — WIN MODE', 'pocket-lfg');
+  const oorHTML = renderPocketCard(oor, '🔄 OOR — SHUFFLE', 'pocket-oor');
 
   el.innerHTML = `
     <div class="print-header">
@@ -2673,10 +2800,22 @@ function renderPrintTab() {
         </div>
       </div>
       <div>
-        <div class="print-section-title">Defensive Lineup</div>
+        <div class="print-section-title">Defensive Lineup — Innings 1–3</div>
         <div class="print-inning-cols">
           ${defHTML || '<div style="color:#aaa;font-size:0.85rem;">Generate a defensive lineup first</div>'}
         </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: POCKET CARD -->
+    <div class="print-page-break">
+      <div class="print-header" style="margin-bottom:12px;">
+        <div class="print-title" style="font-size:1.1rem;">🥎 Pabst Softball — Inning 4 Pocket Card</div>
+        <div class="print-meta">Game ${gameNum} &nbsp;·&nbsp; ${gameDate}</div>
+      </div>
+      <div class="pocket-grid">
+        ${lfgHTML}
+        ${oorHTML}
       </div>
     </div>`;
 }
