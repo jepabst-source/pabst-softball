@@ -594,7 +594,7 @@ function renderPlayers() {
       : '';
 
     const posBadges = positions.length
-      ? positions.map(pos => `<span class="pos-badge">${pos}</span>`).join('')
+      ? positions.map(pos => `<span class="pos-badge">${pos.replace('Center Field','C.Field').replace('Left Field','L.Field').replace('Right Field','R.Field')}</span>`).join('')
       : '<span class="no-data">No games recorded yet</span>';
 
     return `
