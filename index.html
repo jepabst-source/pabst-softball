@@ -1097,8 +1097,25 @@
 
   <div id="inning-cards" style="display:flex;flex-direction:column;gap:20px;"></div>
 
-  <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+  <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;"></div>
 
+  <!-- Inning 4 Pocket Cards -->
+  <div id="inning4-cards" style="margin-top:28px;display:none;">
+    <div style="font-family:Oswald;font-size:0.75rem;letter-spacing:0.12em;color:#6a8a55;border-top:1px solid var(--border);padding-top:14px;margin-bottom:14px;">INNING 4 — POCKET CARD</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="inning-card">
+        <div class="inning-card-header">
+          <div class="inning-card-title">⚡ 4-LFG <span style="font-size:0.65rem;background:rgba(45,90,27,0.4);color:#a8d832;border:1px solid rgba(168,216,50,0.3);border-radius:4px;padding:1px 7px;letter-spacing:0.08em;vertical-align:middle;">WIN MODE</span></div>
+        </div>
+        <div class="inning-card-body" id="lfg-card-body"></div>
+      </div>
+      <div class="inning-card">
+        <div class="inning-card-header">
+          <div class="inning-card-title">🔄 4-OOR <span style="font-size:0.65rem;background:rgba(100,100,100,0.3);color:#aaa;border:1px solid rgba(150,150,150,0.3);border-radius:4px;padding:1px 7px;letter-spacing:0.08em;vertical-align:middle;">SHUFFLE</span></div>
+        </div>
+        <div class="inning-card-body" id="oor-card-body"></div>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -2070,6 +2087,62 @@ function renderInningCards() {
       </div>`;
     container.appendChild(card);
   }
+
+  // Render inning 4 pocket cards if we have a full rotation
+  const hasLineup = Object.keys(currentGame).length >= 3;
+  const inning4Section = document.getElementById('inning4-cards');
+  if (hasLineup && inning4Section) {
+    inning4Section.style.display = 'block';
+    renderInning4Cards();
+  } else if (inning4Section) {
+    inning4Section.style.display = 'none';
+  }
+}
+
+function renderInning4Cards() {
+  const activePlayers = getActivePlayers();
+  const lfg = buildLFGLineup();
+  const oor = buildOORLineup4();
+
+  const makeCardBody = (assignment, containerId) => {
+    const el = document.getElementById(containerId);
+    if (!el || !assignment) return;
+    const infieldPos = POSITIONS.infield;
+    const outfieldPos = POSITIONS.outfield;
+    const benchPos = POSITIONS.bench.filter(p => assignment[p]);
+
+    const makeRow = (pos) => {
+      const pid = assignment[pos];
+      const p = pid ? state.players.find(x => x.id == pid) : null;
+      return `<div class="position-row">
+        <div class="pos-label"><span class="pos-pill ${POSITIONS.infield.includes(pos) ? 'pos-infield' : 'pos-outfield'}">${pos}</span></div>
+        <div class="pos-player">${p ? p.name : '—'}</div>
+      </div>`;
+    };
+    const makeBenchRow = (pos) => {
+      const pid = assignment[pos];
+      const p = pid ? state.players.find(x => x.id == pid) : null;
+      if (!p) return '';
+      return `<div class="position-row" style="opacity:0.6;">
+        <div class="pos-label"><span class="pos-pill pos-bench">Bench</span></div>
+        <div class="pos-player">${p.name}</div>
+      </div>`;
+    };
+
+    el.innerHTML = `
+      <div class="inning-col">
+        <div class="inning-col-label">INFIELD</div>
+        ${infieldPos.map(makeRow).join('')}
+      </div>
+      <div class="inning-col">
+        <div class="inning-col-label">OUTFIELD</div>
+        ${outfieldPos.map(makeRow).join('')}
+        ${benchPos.length ? `<div class="inning-col-label" style="margin-top:10px;">BENCH</div>${benchPos.map(makeBenchRow).join('')}` : ''}
+      </div>`;
+  };
+
+  makeCardBody(lfg, 'lfg-card-body');
+  makeCardBody(oor, 'oor-card-body');
 }
 
 function updateAssignment(inning, pos, val) {
