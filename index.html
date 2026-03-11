@@ -1044,7 +1044,7 @@
       <button class="btn btn-primary" onclick="saveFullGame()">✅ Commit Game</button>
     </div>
   </div>
-  <div class="info-note">Auto-generates a 3-inning rotation. Inning 2 uses relaxed weighting for development. 1st Base and Shortstop require rating 3+. No player sits bench two innings in a row.</div>
+  <div class="info-note">Auto-generates a 3-inning rotation. Inning 2 uses relaxed weighting for development. 1st Base requires 4★+ (innings 1 & 3), Shortstop requires 3★+. No player sits bench two innings in a row.</div>
 
   <!-- Attendance -->
   <div class="form-panel" style="margin-bottom:16px;">
@@ -1763,7 +1763,7 @@ function renderDefenseTab() {
 }
 
 // Position minimum ratings — hard floors applied every inning
-const POS_MIN_RATING = { '1st Base': 3, 'Shortstop': 3 };
+const POS_MIN_RATING = { '1st Base': 4, 'Shortstop': 3 };
 
 // Infield positions for outfield cap tracking
 const INFIELD_POSITIONS = ['1st Base', '2nd Base', '3rd Base', 'Shortstop'];
@@ -1789,14 +1789,14 @@ function showToast(msg, color) {
 function checkRatingWarning(activePlayers) {
   const qualified = activePlayers.filter(p => p.defRating >= 3 && p.role !== 'P1' && !p.canCatch);
   if (qualified.length < 3) {
-    showToast('⚠ Not enough 3★+ players to fully cover 1st Base & Shortstop every inning — check manually');
+    showToast('⚠ Not enough qualified players to fully cover 1st Base (4★+) & Shortstop (3★+) every inning — check manually');
   }
 }
 
 function scoreFieldPlayer(p, pos, ing, posHistory) {
-  // Hard floor: 1st Base and Shortstop require rating 3+
+  // Hard floor: 1st Base (4★+) and Shortstop (3★+) — only applied in innings 1 & 3, not DEV inning
   const minRating = POS_MIN_RATING[pos];
-  if (minRating && p.defRating < minRating) return -9999;
+  if (minRating && ing !== 2 && p.defRating < minRating) return -9999;
 
   // Outfield cap: max 2 infield innings per game
   const infieldCountSoFar = Object.entries(currentGame)
